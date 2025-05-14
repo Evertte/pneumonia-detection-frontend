@@ -24,7 +24,7 @@ const UploadPage: React.FC = () => {
     formData.append('file', selectedFiles[0]);
 
     try {
-      const response = await fetch('http://localhost:8000/predict', {
+      const response = await fetch('https://pneumonia-detection-backend.onrender.com/predict', {
         method: 'POST',
         body: formData,
       });
