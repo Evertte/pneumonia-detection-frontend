@@ -19,7 +19,7 @@ const App = () => {
       <Navbar theme={theme} setTheme={setTheme} />
       <Routes>
         {/* Route for the homepage */}
-        <Route path="/" element={<Home theme={theme} />} />
+        <Route path="/" element={<Home />} />
 
         {/* Route for the info page */}
         <Route path="/info" element={<Info />} />

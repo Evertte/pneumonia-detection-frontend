@@ -8,3 +8,24 @@ body,
 .navbar-brand {
   font-weight: bold;
 }
+
+.XrayUploader-background {
+  background-image: url('/assets/Pneumonia-image.jpg');
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+  width: 100%;
+  background-repeat: no-repeat;
+  filter: brightness(0.6);
+}
+.logo {
+  width: 30px; /* or any other width you prefer */
+  height: 20px; /* or any other height you prefer */
+  background-color: #fff; /* or any other background color you prefer */
+  padding: 5px; /* or any other padding you prefer */
+  border-radius: 5px; /* or any other border radius you prefer */
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
