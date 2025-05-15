@@ -9,10 +9,7 @@ const UploadPage: React.FC = () => {
   const [modalMessage, setModalMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const BACKEND_URL =
-    window.location.hostname === 'localhost'
-      ? 'http://localhost:8000/predict'
-      : 'https://pneumonia-detection-backend.onrender.com/predict';
+  const BACKEND_URL = 'http://pneumonia-detection-backend.onrender.com/predict/';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,29 +32,40 @@ const UploadPage: React.FC = () => {
     const handleUpload = async () => {
       if (!selectedFile) return;
       setLoading(true);
-
+      setModalMessage(null);
+  
       const formData = new FormData();
       formData.append('file', selectedFile);
-
+  
       try {
         const response = await fetch(BACKEND_URL, {
           method: 'POST',
           body: formData,
         });
-
+  
         if (!response.ok) throw new Error('Upload failed');
         const result = await response.json();
+  
         const prediction = result.prediction;
-
-        if (prediction === 'Pneumonia') {
-          setModalMessage(
-            'The uploaded X-ray indicates pneumonia. It’s important to consult a healthcare professional immediately. Pneumonia is treatable, especially when detected early. Ensure proper hydration, rest, and follow prescribed medications.'
-          );
-        } else {
-          setModalMessage(
-            'The uploaded X-ray appears normal. This suggests no signs of pneumonia. Continue practicing healthy habits and consult your doctor if you experience any symptoms. Stay informed and proactive about your health.'
-          );
+        const confidence = result.confidence;
+  
+        if (!prediction || confidence === undefined) {
+          throw new Error('Invalid response from server');
         }
+  
+        const confidencePercent = (confidence * 100).toFixed(2);
+        const predictionText = `${prediction} (Confidence: ${confidencePercent}%)`;
+  
+        let advice = '';
+        if (prediction === 'PNEUMONIA') {
+          advice = 'The uploaded X-ray indicates pneumonia. It’s important to consult a healthcare professional immediately. Pneumonia is treatable, especially when detected early. Ensure proper hydration, rest, and follow prescribed medications.';
+        } else if (prediction === 'NORMAL') {
+          advice = 'The uploaded X-ray appears normal. This suggests no signs of pneumonia. Continue practicing healthy habits and consult your doctor if you experience any symptoms. Stay informed and proactive about your health.';
+        } else {
+          advice = 'The diagnosis was unclear. Please try another image or consult your doctor for more information.';
+        }
+  
+        setModalMessage(`${predictionText}\n\n${advice}`);
       } catch (error) {
         console.error('Error uploading file:', error);
         setModalMessage('Something went wrong while uploading. Please try again.');
@@ -65,13 +73,12 @@ const UploadPage: React.FC = () => {
         setLoading(false);
       }
     };
-
+  
     if (selectedFile) {
       handleUpload();
     }
   }, [selectedFile, BACKEND_URL]);
-
-  // ... (styles and JSX unchanged from previous version)
+  
 
   return (
     <>
@@ -132,14 +139,17 @@ const UploadPage: React.FC = () => {
         </div>
       )}
 
-      {modalMessage && !loading && (
-        <div style={modalStyle}>
-          <p>{modalMessage}</p>
-          <button onClick={() => setModalMessage(null)} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-            Close
-          </button>
-        </div>
-      )}
+{modalMessage && !loading && (
+  <div style={modalStyle}>
+    {modalMessage.split('\n\n').map((line, i) => (
+      <p key={i}>{line}</p>
+    ))}
+    <button onClick={() => setModalMessage(null)} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+      Close
+    </button>
+  </div>
+)}
+
     </>
   );
 };

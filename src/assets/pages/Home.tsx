@@ -169,7 +169,7 @@ const Home: React.FC<HomeProps> = ({ theme }) => {
             fontWeight: '500',
           }}
         >
-          About
+          X-Ray Uploader
         </a>
       </li>
     </ul>
