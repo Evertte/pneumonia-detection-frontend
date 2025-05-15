@@ -1,137 +1,188 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef, useEffect } from 'react';
+import lungImage from '../../assets/Pneumonia-image.jpg';
+import logo from '../../assets/logo.jpg';
 
 const UploadPage: React.FC = () => {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [modalMessage, setModalMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const BACKEND_URL = 'http://pneumonia-detection-backend.onrender.com/predict/';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setSelectedFiles(files);
-    setUploadStatus('');
-    const urls = files.map(file => URL.createObjectURL(file));
-    setPreviewUrls(urls);
-  };
-
-  const handleUpload = async () => {
-    if (selectedFiles.length === 0) {
-      setUploadStatus('Please select at least one file.');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', selectedFiles[0]);
-
-    try {
-      const response = await fetch('https://pneumonia-detection-backend.onrender.com/predict', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      const label = data.prediction;
-      const confidence = (data.confidence * 100).toFixed(2);
-      setUploadStatus(`${label} (Confidence: ${confidence}%)`);
-    } catch (error) {
-      console.error(error);
-      setUploadStatus('Error uploading file. Please try again.');
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
   const handleReset = () => {
-    setSelectedFiles([]);
-    setPreviewUrls([]);
-    setUploadStatus('');
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setModalMessage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
+  useEffect(() => {
+    const handleUpload = async () => {
+      if (!selectedFile) return;
+      setLoading(true);
+      setModalMessage(null);
+  
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+  
+      try {
+        const response = await fetch(BACKEND_URL, {
+          method: 'POST',
+          body: formData,
+        });
+  
+        if (!response.ok) throw new Error('Upload failed');
+        const result = await response.json();
+  
+        const prediction = result.prediction;
+        const confidence = result.confidence;
+  
+        if (!prediction || confidence === undefined) {
+          throw new Error('Invalid response from server');
+        }
+  
+        const confidencePercent = (confidence * 100).toFixed(2);
+        const predictionText = `${prediction} (Confidence: ${confidencePercent}%)`;
+  
+        let advice = '';
+        if (prediction === 'PNEUMONIA') {
+          advice = 'The uploaded X-ray indicates pneumonia. It’s important to consult a healthcare professional immediately. Pneumonia is treatable, especially when detected early. Ensure proper hydration, rest, and follow prescribed medications.';
+        } else if (prediction === 'NORMAL') {
+          advice = 'The uploaded X-ray appears normal. This suggests no signs of pneumonia. Continue practicing healthy habits and consult your doctor if you experience any symptoms. Stay informed and proactive about your health.';
+        } else {
+          advice = 'The diagnosis was unclear. Please try another image or consult your doctor for more information.';
+        }
+  
+        setModalMessage(`${predictionText}\n\n${advice}`);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        setModalMessage('Something went wrong while uploading. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    if (selectedFile) {
+      handleUpload();
+    }
+  }, [selectedFile, BACKEND_URL]);
+  
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#e0f2fe] via-[#f0f9ff] to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 font-sans">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-        {/* Left: Illustration */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="relative w-full h-[400px] md:h-[500px] xl:h-[600px] overflow-hidden rounded-3xl shadow-2xl"
-        >
-          <img
-            src="/src/assets/image.png"
-            alt="Lungs Illustration"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        </motion.div>
-
-        {/* Right: Upload Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-          className="bg-gray-100 dark:bg-gray-800 shadow-xl rounded-3xl p-8 flex flex-col justify-center items-center text-center space-y-6"
-        >
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white">Upload X‑ray</h1>
-          <p className="text-gray-700 dark:text-gray-300">Select or drag‑and‑drop chest X‑ray images below.</p>
-
-          {/* File picker */}
-          <label className="w-full max-w-md p-10 rounded-xl cursor-pointer border-2 border-dashed border-blue-400 bg-blue-50 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-gray-600 transition-colors duration-200 flex flex-col items-center justify-center space-y-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v9m0 0l3-3m-3 3l-3-3m0-9h6a2 2 0 012 2v4H7v-4a2 2 0 012-2z" />
-            </svg>
-            <input type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
-            <span className="text-blue-600 dark:text-blue-300 font-medium">Click or drop images here</span>
-          </label>
-
-          {/* Preview thumbnails */}
-          {previewUrls.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-4 mt-2">
-              {previewUrls.map((url, idx) => (
-                <img
-                  key={idx}
-                  src={url}
-                  alt={`Preview ${idx + 1}`}
-                  className="mt-4 rounded-md shadow border border-gray-300"
-                  style={{ width: '200px', height: '200px', objectFit: 'cover' }}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex gap-4 mt-4">
-            <button
-              onClick={handleUpload}
-              className="px-6 py-2 bg-black text-white font-semibold rounded-lg hover:bg-gray-900 transition-all shadow-md"
-            >
-              Upload & Analyze
-            </button>
-            <button
-              onClick={handleReset}
-              className="px-6 py-2 bg-black text-white font-semibold rounded-lg hover:bg-gray-900 transition-all shadow-md"
-            >
-              Reset
-            </button>
-          </div>
-
-          {/* Output message */}
-          {uploadStatus && (
-            <div
-              className={`mt-6 p-4 rounded-xl shadow-lg text-2xl font-semibold w-full max-w-sm
-              ${uploadStatus.includes('PNEUMONIA') ? 'bg-red-100 text-red-700 border border-red-400'
-                : uploadStatus.includes('NORMAL') ? 'bg-green-100 text-green-700 border border-green-400'
-                : 'bg-yellow-100 text-yellow-700 border border-yellow-400'}`}
-            >
-              {uploadStatus}
-            </div>
-          )}
-        </motion.div>
+    <>
+      {/* Background and overlay */}
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: `url(${lungImage})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', filter: 'brightness(0.8)', zIndex: 0 }} />
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1 }} />
+      <img src={logo} alt="Logo" style={{ position: 'absolute', top: '1rem', right: '1rem', width: '90px', height: '90px', borderRadius: '50%', border: '2px solid white', objectFit: 'cover', zIndex: 3 }} />
+      <button style={{ position: 'absolute', top: '1rem', left: '1rem', backgroundColor: '#ffffff', color: '#3498db', padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', zIndex: 3 }} onClick={() => window.location.href = '/'}>
+        Home
+      </button>
+      <div style={{ position: 'absolute', top: '5rem', left: 0, right: 0, textAlign: 'center', color: '#ffffff', fontSize: '3rem', fontWeight: 'bold', zIndex: 2 }}>
+        Evertte's Pneumonia Detection App
       </div>
-    </div>
+
+      {/* Cards and upload */}
+      <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'start', flexWrap: 'wrap', gap: '2.8rem', zIndex: 2, paddingTop: '8rem' }}>
+        <div style={cardStyle}>
+        <h2 style={{ fontSize: '2rem' }}>Welcome 👋</h2>
+
+<p>
+  This web application uses a <strong>Computer Vision</strong> algorithm trained to detect signs of pneumonia in chest X-ray images.</p> 
+<p>
+  It leverages the power of <strong>deep learning</strong> to analyze radiographic patterns and assist in identifying abnormalities. </p> 
+<p>
+  The model was trained using a publicly available dataset from <strong>Kaggle</strong>, comprising thousands of labeled X-ray images.
+</p>
+
+        </div>
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: '2rem' }}>Upload X-ray</h2>
+          <p>Upload your X-ray image to diagnose pneumonia.</p>
+          <input type="file" accept="image/*" style={{ fontSize: "1rem", padding: "0.3rem 0.7rem", marginTop: '1rem' }} ref={fileInputRef} onChange={handleFileChange} />
+          {previewUrl && <img src={previewUrl} alt="Preview" style={{ width: '100%', maxHeight: '200px', borderRadius: '8px', marginTop: '1rem' }} />}
+          <button onClick={handleReset} style={{ backgroundColor: '#3498db', color: '#fff', padding: '0.3rem 0.7rem', fontSize: '1rem', borderRadius: '5px', border: 'none', cursor: 'pointer', marginTop: '1rem' }}>Reset</button>
+        </div>
+        <div style={cardStyle}>
+        <h2 style={{ fontSize: '2rem' }}>Disclaimer!</h2>
+<p>
+  This application is intended <strong>strictly for educational and demonstration purposes</strong>.</p>
+<p>
+   It is not a certified diagnostic tool 
+  and should <strong>not</strong> be used as a substitute for professional medical evaluation.
+</p>
+<p>
+  While the AI model performs with reasonable accuracy, it is still prone to <strong>errors and false predictions</strong>. </p>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', zIndex: 2, position: 'relative' }}>
+        <button style={{ marginTop: '3rem', padding: '0.8rem 2rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '2px solid #fff', cursor: 'pointer' }}>
+          Pneumonia Overview
+        </button>
+      </div>
+
+      {loading && (
+        <div style={modalStyle}>
+          <p>Analyzing image... Please wait.</p>
+        </div>
+      )}
+
+{modalMessage && !loading && (
+  <div style={modalStyle}>
+    {modalMessage.split('\n\n').map((line, i) => (
+      <p key={i}>{line}</p>
+    ))}
+    <button onClick={() => setModalMessage(null)} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+      Close
+    </button>
+  </div>
+)}
+
+    </>
   );
+};
+
+const cardStyle: React.CSSProperties = {
+  backgroundColor: 'rgba(30, 60, 90, 0.75)',
+  color: '#f0f8ff',
+  padding: '2rem',
+  borderRadius: '12px',
+  width: '400px',
+  minHeight: '400px',
+  backdropFilter: 'blur(10px)',
+  textAlign: 'center',
+  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+  border: '1px solid rgba(255,255,255,0.2)',
+  transition: 'transform 0.3s ease',
+  fontSize: '1.15em',
+};
+
+const modalStyle: React.CSSProperties = {
+  position: 'fixed',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  backgroundColor: '#fff',
+  color: '#333',
+  padding: '2rem',
+  borderRadius: '12px',
+  zIndex: 100,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+  width: '90%',
+  maxWidth: '500px',
+  textAlign: 'center'
 };
 
 export default UploadPage;
